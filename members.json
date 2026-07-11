@@ -1,0 +1,49 @@
+{
+  "members": [
+    {
+      "member_id": "MEM-1001",
+      "patient_name": "Ahmed Raza",
+      "plan_type": "Gold PPO",
+      "premium_status": "PAID",
+      "coverage_status": "ACTIVE",
+      "coverage_start_date": "2025-01-01",
+      "coverage_end_date": "2026-12-31"
+    },
+    {
+      "member_id": "MEM-1002",
+      "patient_name": "Sara Khan",
+      "plan_type": "Silver HMO",
+      "premium_status": "OVERDUE",
+      "coverage_status": "INACTIVE",
+      "coverage_start_date": "2024-06-01",
+      "coverage_end_date": "2025-05-31"
+    },
+    {
+      "member_id": "MEM-1003",
+      "patient_name": "John Miller",
+      "plan_type": "Platinum PPO",
+      "premium_status": "PAID",
+      "coverage_status": "ACTIVE",
+      "coverage_start_date": "2025-03-01",
+      "coverage_end_date": "2026-02-28"
+    },
+    {
+      "member_id": "MEM-1004",
+      "patient_name": "Emily Davis",
+      "plan_type": "Bronze HMO",
+      "premium_status": "PAID",
+      "coverage_status": "EXPIRED",
+      "coverage_start_date": "2023-01-01",
+      "coverage_end_date": "2024-01-01"
+    },
+    {
+      "member_id": "MEM-1005",
+      "patient_name": "Bilal Ahmed",
+      "plan_type": "Gold PPO",
+      "premium_status": "PAID",
+      "coverage_status": "ACTIVE",
+      "coverage_start_date": "2025-05-01",
+      "coverage_end_date": "2026-04-30"
+    }
+  ]
+}
