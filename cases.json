@@ -1,0 +1,47 @@
+[
+  {
+    "case_id": "CASE-001",
+    "patient_age": 54,
+    "diagnosis": "Type 2 Diabetes Mellitus, uncontrolled (HbA1c 9.2%)",
+    "clinical_notes": "Patient has been on Metformin 1000mg and Glipizide for 8 months with inadequate glycemic control. HbA1c remains at 9.2%. No history of pancreatitis. Renal function normal (eGFR 85). Requesting approval for Ozempic (semaglutide) injection.",
+    "requested_treatment": "Semaglutide (Ozempic) 0.25mg weekly injection",
+    "prior_treatments_tried": ["Metformin", "Glipizide"],
+    "expected_outcome": "justified"
+  },
+  {
+    "case_id": "CASE-002",
+    "patient_age": 29,
+    "diagnosis": "Tension headache, occasional",
+    "clinical_notes": "Patient reports mild tension headaches 1-2 times per month, relieved by rest. No red flag symptoms. No prior treatment attempted.",
+    "requested_treatment": "MRI Brain with contrast",
+    "prior_treatments_tried": [],
+    "expected_outcome": "not_justified"
+  },
+  {
+    "case_id": "CASE-003",
+    "patient_age": 61,
+    "diagnosis": "Osteoarthritis, right knee, severe (Kellgren-Lawrence Grade 4)",
+    "clinical_notes": "Patient has failed conservative management including NSAIDs, physical therapy (12 weeks), and corticosteroid injections (2 rounds) over the past year. X-ray confirms bone-on-bone arthritis. Significant functional impairment affecting ADLs.",
+    "requested_treatment": "Total Knee Arthroplasty (Knee Replacement Surgery)",
+    "prior_treatments_tried": ["NSAIDs", "Physical Therapy", "Corticosteroid injections"],
+    "expected_outcome": "justified"
+  },
+  {
+    "case_id": "CASE-004",
+    "patient_age": 35,
+    "diagnosis": "Seasonal allergic rhinitis",
+    "clinical_notes": "Patient has mild seasonal allergy symptoms during spring. Has not tried any over-the-counter antihistamines yet.",
+    "requested_treatment": "Xolair (omalizumab) injection",
+    "prior_treatments_tried": [],
+    "expected_outcome": "not_justified"
+  },
+  {
+    "case_id": "CASE-005",
+    "patient_age": 45,
+    "diagnosis": "Major Depressive Disorder, treatment-resistant",
+    "clinical_notes": "Patient has failed adequate trials of 3 different SSRIs/SNRIs (sertraline, venlafaxine, bupropion) over 18 months, each at therapeutic doses for 8+ weeks. PHQ-9 score remains 19 (severe). Referred by psychiatrist for esketamine treatment.",
+    "requested_treatment": "Esketamine (Spravato) nasal spray",
+    "prior_treatments_tried": ["Sertraline", "Venlafaxine", "Bupropion"],
+    "expected_outcome": "justified"
+  }
+]

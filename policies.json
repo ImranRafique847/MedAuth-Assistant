@@ -1,0 +1,49 @@
+{
+  "policies": [
+    {
+      "policy_id": "POL-DIABETES-GLP1",
+      "treatment_category": "GLP-1 agonist (e.g. Ozempic, Semaglutide)",
+      "covered_diagnoses": ["Type 2 Diabetes Mellitus"],
+      "requires_step_therapy": true,
+      "required_prior_treatments": ["Metformin"],
+      "min_prior_treatment_count": 1,
+      "notes": "Covered only if HbA1c > 7.5% after at least one oral agent trial."
+    },
+    {
+      "policy_id": "POL-IMAGING-MRI-BRAIN",
+      "treatment_category": "MRI Brain",
+      "covered_diagnoses": ["Migraine with red flags", "Suspected stroke", "Head trauma", "Seizure"],
+      "requires_step_therapy": false,
+      "required_prior_treatments": [],
+      "min_prior_treatment_count": 0,
+      "notes": "Not covered for routine/mild headache without red flag symptoms."
+    },
+    {
+      "policy_id": "POL-ORTHO-KNEE-REPLACEMENT",
+      "treatment_category": "Total Knee Arthroplasty",
+      "covered_diagnoses": ["Osteoarthritis, severe"],
+      "requires_step_therapy": true,
+      "required_prior_treatments": ["NSAIDs", "Physical Therapy", "Corticosteroid injections"],
+      "min_prior_treatment_count": 2,
+      "notes": "Requires documented failure of at least 2 conservative treatments."
+    },
+    {
+      "policy_id": "POL-ALLERGY-BIOLOGIC",
+      "treatment_category": "Biologic (e.g. Xolair)",
+      "covered_diagnoses": ["Chronic severe asthma", "Chronic idiopathic urticaria"],
+      "requires_step_therapy": true,
+      "required_prior_treatments": ["Antihistamines", "Inhaled corticosteroids"],
+      "min_prior_treatment_count": 1,
+      "notes": "Not covered for mild seasonal allergic rhinitis."
+    },
+    {
+      "policy_id": "POL-PSYCH-ESKETAMINE",
+      "treatment_category": "Esketamine (Spravato)",
+      "covered_diagnoses": ["Major Depressive Disorder, treatment-resistant"],
+      "requires_step_therapy": true,
+      "required_prior_treatments": ["SSRI", "SNRI"],
+      "min_prior_treatment_count": 2,
+      "notes": "Requires failure of at least 2 adequate antidepressant trials."
+    }
+  ]
+}
