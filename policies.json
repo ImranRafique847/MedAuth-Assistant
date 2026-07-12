@@ -3,6 +3,9 @@
     {
       "policy_id": "POL-DIABETES-GLP1",
       "treatment_category": "GLP-1 agonist (e.g. Ozempic, Semaglutide)",
+      "covered_icd10_codes": ["E11", "E11.9", "E11.65", "E11.649", "E11.8", "E11.69"],
+      "covered_cpt_codes": [],
+      "covered_hcpcs_codes": ["J3490", "J0222", "J0223", "J3101"],
       "covered_diagnoses": ["Type 2 Diabetes Mellitus"],
       "requires_step_therapy": true,
       "required_prior_treatments": ["Metformin"],
@@ -12,6 +15,17 @@
     {
       "policy_id": "POL-IMAGING-MRI-BRAIN",
       "treatment_category": "MRI Brain",
+      "covered_icd10_codes": [
+        "G43", "G43.9", "G43.909",
+        "I63", "I63.9",
+        "S09.90XA",
+        "G40", "G40.909",
+        "G35",
+        "C71", "C71.9",
+        "F01", "F01.50", "F03", "F03.90"
+      ],
+      "covered_cpt_codes": ["70551", "70552", "70553"],
+      "covered_hcpcs_codes": [],
       "covered_diagnoses": ["Migraine with red flags", "Suspected stroke", "Head trauma", "Seizure"],
       "requires_step_therapy": false,
       "required_prior_treatments": [],
@@ -21,6 +35,13 @@
     {
       "policy_id": "POL-ORTHO-KNEE-REPLACEMENT",
       "treatment_category": "Total Knee Arthroplasty",
+      "covered_icd10_codes": [
+        "M17", "M17.0", "M17.10", "M17.11", "M17.12",
+        "M17.2", "M17.30", "M17.31", "M17.32",
+        "M05.861", "M05.862", "M06.061", "M06.062"
+      ],
+      "covered_cpt_codes": ["27447", "27446", "27445"],
+      "covered_hcpcs_codes": [],
       "covered_diagnoses": ["Osteoarthritis, severe"],
       "requires_step_therapy": true,
       "required_prior_treatments": ["NSAIDs", "Physical Therapy", "Corticosteroid injections"],
@@ -30,6 +51,12 @@
     {
       "policy_id": "POL-ALLERGY-BIOLOGIC",
       "treatment_category": "Biologic (e.g. Xolair)",
+      "covered_icd10_codes": [
+        "J45.50", "J45.51", "J45.901", "J45.20", "J45.21",
+        "L50.1"
+      ],
+      "covered_cpt_codes": [],
+      "covered_hcpcs_codes": ["J2357"],
       "covered_diagnoses": ["Chronic severe asthma", "Chronic idiopathic urticaria"],
       "requires_step_therapy": true,
       "required_prior_treatments": ["Antihistamines", "Inhaled corticosteroids"],
@@ -39,6 +66,13 @@
     {
       "policy_id": "POL-PSYCH-ESKETAMINE",
       "treatment_category": "Esketamine (Spravato)",
+      "covered_icd10_codes": [
+        "F32.89", "F32.3", "F32.2",
+        "F33.2", "F33.3",
+        "F32.1"
+      ],
+      "covered_cpt_codes": ["99409"],
+      "covered_hcpcs_codes": ["S0013"],
       "covered_diagnoses": ["Major Depressive Disorder, treatment-resistant"],
       "requires_step_therapy": true,
       "required_prior_treatments": ["SSRI", "SNRI"],

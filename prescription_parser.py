@@ -26,6 +26,9 @@ SYSTEM_PROMPT = """You extract structured data from a prescription/clinical docu
 prior authorization system. Read the raw text and extract these fields.
 
 If a field is not present in the text, use null (do not guess or invent information).
+For ICD-10 and CPT/HCPCS codes: extract them if explicitly stated in the document.
+If not explicitly stated, attempt to infer the most likely code from the diagnosis or
+treatment text, but set extraction_confidence to "medium" or "low" to reflect uncertainty.
 
 Respond ONLY in valid JSON, no extra text, exactly this structure:
 {
@@ -33,10 +36,13 @@ Respond ONLY in valid JSON, no extra text, exactly this structure:
   "patient_name": "patient's full name, or null",
   "patient_age": a number, or null,
   "diagnosis": "the diagnosis as stated in the document",
+  "diagnosis_icd10": "ICD-10 code if present or inferable (e.g. E11.65), or null",
   "clinical_notes": "relevant clinical notes/history from the document",
   "requested_treatment": "the medicine/procedure/treatment being requested",
+  "treatment_cpt": "CPT procedure code if present or inferable (e.g. 27447), or null",
+  "treatment_hcpcs": "HCPCS code if present or inferable (e.g. J2357), or null",
   "prior_treatments_tried": ["list", "of", "prior treatments mentioned"],
-  "extraction_confidence": "high, medium, or low - based on how clear/complete the document was"
+  "extraction_confidence": "high if explicit codes present and document is complete; medium if codes were inferred from text; low if document was unclear or codes could not be determined"
 }
 """
 

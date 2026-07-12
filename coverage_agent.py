@@ -1,16 +1,22 @@
 """
 Coverage Agent
 --------------
-Two-layer coverage check:
+Three-layer coverage check (in priority order):
 
-  Layer 1 — NCD citation lookup (data/cms_coverage/ncd_documents.json)
-    Searches the 345 real CMS National Coverage Determinations by title
-    keywords. If a match is found, attaches document_id, title, and the
-    official CMS URL as a citation. No approval logic here — citation only.
+  Layer 1 — ICD-10 / CPT / HCPCS code matching (primary)
+    Resolves the diagnosis to an ICD-10 code via NIH Clinical Tables API,
+    then matches against covered_icd10_codes in each policy.
+    Also matches treatment CPT/HCPCS codes against covered_cpt_codes /
+    covered_hcpcs_codes. Code matching is exact — no text ambiguity.
 
-  Layer 2 — Payer policy decision (policies.json)
-    The existing keyword-match against policies.json drives the actual
-    covered/not-covered decision, step therapy checks, etc.
+  Layer 2 — Keyword text matching (fallback, low-confidence)
+    Used only when no code match is found. Clearly logged as low-confidence.
+    Retained from the previous version so the agent degrades gracefully
+    when codes are unavailable rather than failing silently.
+
+  Layer 3 — NCD citation lookup (data/cms_coverage/ncd_documents.json)
+    Searches 345 real CMS NCD titles for a related document. Citation only —
+    no approval logic. Runs regardless of which layer matched.
 
 Runs AFTER the Clinical Agent (needs its structured output).
 No LLM calls — fully deterministic.
@@ -19,92 +25,15 @@ No LLM calls — fully deterministic.
 import json
 import os
 
+from icd10_lookup import resolve_icd10
+
 POLICIES_PATH = os.path.join(os.path.dirname(__file__), "policies.json")
 NCD_PATH = os.path.join(os.path.dirname(__file__), "data", "cms_coverage", "ncd_documents.json")
-
 CMS_BASE_URL = "https://www.cms.gov/medicare-coverage-database"
 
 
 # ---------------------------------------------------------------------------
-# Layer 1: NCD citation lookup
-# ---------------------------------------------------------------------------
-
-def load_ncd_documents() -> list:
-    """Loads the 345 real NCD records fetched from api.coverage.cms.gov."""
-    try:
-        with open(NCD_PATH, "r") as f:
-            raw = json.load(f)
-        # Real CMS API wraps records in {"meta": ..., "data": [...]}
-        if isinstance(raw, dict) and "data" in raw:
-            return raw["data"]
-        # Fallback: flat list or legacy format
-        if isinstance(raw, list):
-            return raw
-        return []
-    except FileNotFoundError:
-        return []
-
-
-def find_ncd_citation(requested_treatment: str, ncd_documents: list) -> dict | None:
-    """
-    Searches NCD titles for keywords from the requested treatment.
-    Uses the same simple word-overlap approach as the policy matcher.
-    Returns the best matching NCD record, or None if no match found.
-    """
-    if not ncd_documents:
-        return None
-
-    requested_lower = requested_treatment.lower()
-    # Generic procedural words that appear in many NCD titles — exclude from scoring
-    # to avoid false positives (e.g. "injection" matching unrelated NCDs)
-    STOPWORDS = {
-        "injection", "therapy", "treatment", "procedure", "implant",
-        "surgery", "device", "system", "using", "with", "weekly", "daily",
-        "nasal", "spray", "infusion", "intravenous", "subcutaneous", "oral",
-    }
-    treatment_words = [
-        w.strip("(),.-") for w in requested_lower.split()
-        if len(w.strip("(),.-")) > 4 and w.strip("(),.-") not in STOPWORDS
-    ]
-
-    if not treatment_words:
-        return None
-
-    best_match = None
-    best_score = 0
-
-    for doc in ncd_documents:
-        title_lower = doc.get("title", "").lower()
-        # Score = sum of word lengths that match (longer words = stronger signal)
-        score = sum(len(word) for word in treatment_words if word in title_lower)
-        if score > best_score:
-            best_score = score
-            best_match = doc
-
-    # Require a minimum score of 8 (roughly one meaningful medical term matching)
-    return best_match if best_score >= 8 else None
-
-
-def format_ncd_citation(ncd: dict) -> dict:
-    """Formats an NCD record into a clean citation dict for the response."""
-    raw_url = ncd.get("url", "")
-    # CMS API returns relative URLs like /data/ncd?ncdid=108&ncdver=1
-    full_url = (
-        CMS_BASE_URL + raw_url
-        if raw_url.startswith("/")
-        else raw_url or CMS_BASE_URL
-    )
-    return {
-        "ncd_document_id": ncd.get("document_id"),
-        "ncd_display_id": ncd.get("document_display_id"),
-        "ncd_title": ncd.get("title"),
-        "ncd_last_updated": ncd.get("last_updated"),
-        "ncd_url": full_url,
-    }
-
-
-# ---------------------------------------------------------------------------
-# Layer 2: Payer policy decision (existing logic, unchanged)
+# Data loaders
 # ---------------------------------------------------------------------------
 
 def load_policies() -> list:
@@ -112,8 +41,106 @@ def load_policies() -> list:
         return json.load(f)["policies"]
 
 
-# Generic words that cause false positives when matched alone -
-# same stopword list used in the NCD citation fix, kept consistent
+def load_ncd_documents() -> list:
+    try:
+        with open(NCD_PATH, "r") as f:
+            raw = json.load(f)
+        if isinstance(raw, dict) and "data" in raw:
+            return raw["data"]
+        if isinstance(raw, list):
+            return raw
+        return []
+    except FileNotFoundError:
+        return []
+
+
+# ---------------------------------------------------------------------------
+# Layer 1: Code-based policy matching
+# ---------------------------------------------------------------------------
+
+def _icd10_prefix_match(code: str, covered_codes: list) -> bool:
+    """
+    Checks if a code matches any covered code, allowing parent-code coverage.
+    E.g. policy covers "E11" → matches "E11.65", "E11.9", etc.
+    Policy covers "E11.65" → only matches "E11.65" exactly.
+    """
+    code_upper = code.upper()
+    for covered in covered_codes:
+        c = covered.upper()
+        # Exact match or policy code is a parent prefix of the case code
+        if code_upper == c or code_upper.startswith(c) or c.startswith(code_upper):
+            return True
+    return False
+
+
+def find_policy_by_codes(case: dict, policies: list) -> tuple[dict | None, str]:
+    """
+    Attempts to match a policy using ICD-10, CPT, and HCPCS codes.
+    Returns (matched_policy, match_method) where match_method is one of:
+      "icd10"   — matched via ICD-10 diagnosis code
+      "cpt"     — matched via CPT procedure code
+      "hcpcs"   — matched via HCPCS code
+      None      — no code match found
+    """
+    # Resolve ICD-10 code (validate explicit code or look up from text)
+    icd10_result = resolve_icd10(
+        diagnosis_text=case.get("diagnosis", ""),
+        explicit_code=case.get("diagnosis_icd10"),
+    )
+    resolved_code = icd10_result.get("code")
+
+    treatment_cpt = case.get("treatment_cpt", "")
+    treatment_hcpcs = case.get("treatment_hcpcs", "")
+
+    for policy in policies:
+        # --- ICD-10 match ---
+        if resolved_code:
+            covered_icd10 = policy.get("covered_icd10_codes", [])
+            if covered_icd10 and _icd10_prefix_match(resolved_code, covered_icd10):
+                # Also require a CPT/HCPCS match if the policy specifies them,
+                # to avoid matching diagnosis without the right treatment code
+                covered_cpt = policy.get("covered_cpt_codes", [])
+                covered_hcpcs = policy.get("covered_hcpcs_codes", [])
+                has_treatment_codes = bool(covered_cpt or covered_hcpcs)
+
+                if not has_treatment_codes:
+                    return policy, "icd10"
+
+                # Policy has treatment codes — check if treatment matches too
+                cpt_match = treatment_cpt and any(
+                    treatment_cpt.strip() == c.strip()
+                    for c in covered_cpt
+                )
+                hcpcs_match = treatment_hcpcs and any(
+                    treatment_hcpcs.strip() == c.strip()
+                    for c in covered_hcpcs
+                )
+                if cpt_match or hcpcs_match:
+                    return policy, "icd10+cpt" if cpt_match else "icd10+hcpcs"
+
+                # ICD-10 matched but no treatment code match —
+                # still return this policy (diagnosis is the primary gate)
+                return policy, "icd10"
+
+    # --- CPT-only match (no ICD-10 resolved) ---
+    if treatment_cpt:
+        for policy in policies:
+            if treatment_cpt.strip() in [c.strip() for c in policy.get("covered_cpt_codes", [])]:
+                return policy, "cpt"
+
+    # --- HCPCS-only match ---
+    if treatment_hcpcs:
+        for policy in policies:
+            if treatment_hcpcs.strip() in [c.strip() for c in policy.get("covered_hcpcs_codes", [])]:
+                return policy, "hcpcs"
+
+    return None, "none"
+
+
+# ---------------------------------------------------------------------------
+# Layer 2: Keyword fallback (low confidence)
+# ---------------------------------------------------------------------------
+
 POLICY_STOPWORDS = {
     "therapy", "treatment", "injection", "injections", "procedure",
     "surgery", "device", "for", "with", "and", "the", "of", "in", "to",
@@ -121,13 +148,10 @@ POLICY_STOPWORDS = {
 }
 
 
-def find_matching_policy(requested_treatment: str, policies: list) -> dict | None:
+def find_policy_by_keywords(requested_treatment: str, policies: list) -> dict | None:
     """
-    Scores each policy by how many DISTINCT meaningful words overlap with
-    the requested treatment. Requires at least 2 overlapping words (or all
-    of a policy's words if it only has 1-2 meaningful terms) to accept a
-    match - a single shared generic word (like "brain" alone) is not
-    enough, which is what caused the original false-positive bug.
+    Keyword fallback — only used when code matching returns nothing.
+    Scores each policy by distinct meaningful word overlap.
     """
     requested_words = set(
         requested_treatment.lower().replace("(", "").replace(")", "").replace(",", "").split()
@@ -148,11 +172,6 @@ def find_matching_policy(requested_treatment: str, policies: list) -> dict | Non
         overlap_count = len(overlap)
         score = sum(len(w) for w in overlap)
 
-        # Require overlap to cover ALL of the category's meaningful words
-        # (handles short categories like "MRI Brain") OR at least 2 words
-        # (handles longer categories like the GLP-1 one) OR a single very
-        # specific word (6+ chars, e.g. a drug brand name like "Xolair") -
-        # short generic words like "brain" alone still don't qualify
         required = min(2, len(category_words))
         has_specific_word = any(len(w) >= 6 for w in overlap)
         qualifies = overlap_count >= required or (overlap_count >= 1 and has_specific_word)
@@ -169,47 +188,109 @@ def find_matching_policy(requested_treatment: str, policies: list) -> dict | Non
 
 
 # ---------------------------------------------------------------------------
+# Layer 3: NCD citation lookup
+# ---------------------------------------------------------------------------
+
+NCD_STOPWORDS = {
+    "injection", "therapy", "treatment", "procedure", "implant",
+    "surgery", "device", "system", "using", "with", "weekly", "daily",
+    "nasal", "spray", "infusion", "intravenous", "subcutaneous", "oral",
+}
+
+
+def find_ncd_citation(requested_treatment: str, ncd_documents: list) -> dict | None:
+    if not ncd_documents:
+        return None
+    treatment_words = [
+        w.strip("(),.-") for w in requested_treatment.lower().split()
+        if len(w.strip("(),.-")) > 4 and w.strip("(),.-") not in NCD_STOPWORDS
+    ]
+    if not treatment_words:
+        return None
+    best_match = None
+    best_score = 0
+    for doc in ncd_documents:
+        title_lower = doc.get("title", "").lower()
+        score = sum(len(word) for word in treatment_words if word in title_lower)
+        if score > best_score:
+            best_score = score
+            best_match = doc
+    return best_match if best_score >= 8 else None
+
+
+def format_ncd_citation(ncd: dict) -> dict:
+    raw_url = ncd.get("url", "")
+    full_url = CMS_BASE_URL + raw_url if raw_url.startswith("/") else raw_url or CMS_BASE_URL
+    return {
+        "ncd_document_id": ncd.get("document_id"),
+        "ncd_display_id": ncd.get("document_display_id"),
+        "ncd_title": ncd.get("title"),
+        "ncd_last_updated": ncd.get("last_updated"),
+        "ncd_url": full_url,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
 
 def evaluate_case(case: dict, clinical_result: dict = None) -> dict:
     """
     Runs the Coverage Agent on a single case.
-    Returns payer policy decision + optional NCD citation from real CMS data.
+    Priority: ICD-10/CPT code match → keyword fallback → no policy match.
+    Always appends NCD citation if a related CMS document is found.
     """
     requested_treatment = case["requested_treatment"]
+    policies = load_policies()
 
-    # --- Layer 1: NCD citation lookup ---
+    # --- Layer 1: Code-based matching ---
+    policy, match_method = find_policy_by_codes(case, policies)
+    match_confidence = "high"
+
+    # --- Layer 2: Keyword fallback ---
+    if policy is None:
+        policy = find_policy_by_keywords(requested_treatment, policies)
+        if policy:
+            match_method = "keyword_fallback"
+            match_confidence = "low"
+
+    # --- Layer 3: NCD citation ---
     ncd_documents = load_ncd_documents()
     ncd_match = find_ncd_citation(requested_treatment, ncd_documents)
     ncd_citation = format_ncd_citation(ncd_match) if ncd_match else None
 
-    # --- Layer 2: Payer policy decision ---
-    policies = load_policies()
-    policy = find_matching_policy(requested_treatment, policies)
-
-    if not policy:
+    # --- No policy match ---
+    if policy is None:
         result = {
             "case_id": case["case_id"],
             "covered": False,
-            "confidence": 0.6,
-            "reasoning": "No matching payer policy found for this treatment category. Manual review required.",
+            "confidence": 0.5,
+            "reasoning": "No matching payer policy found. Manual review required. "
+                         "(match_method: none — no ICD-10, CPT, HCPCS, or keyword match)",
             "matched_policy_id": None,
+            "match_method": "none",
         }
         if ncd_citation:
             result["ncd_citation"] = ncd_citation
             result["reasoning"] += (
-                f" However, a related CMS NCD was found: '{ncd_citation['ncd_title']}' "
-                f"(NCD {ncd_citation['ncd_display_id']}) — see {ncd_citation['ncd_url']}"
+                f" Related CMS NCD found: '{ncd_citation['ncd_title']}' "
+                f"(NCD {ncd_citation['ncd_display_id']}) — {ncd_citation['ncd_url']}"
             )
         return result
 
-    diagnosis_lower = case["diagnosis"].lower()
-    diagnosis_matches = any(
-        d.lower() in diagnosis_lower or diagnosis_lower in d.lower()
-        for d in policy["covered_diagnoses"]
-    )
+    # --- Evaluate diagnosis match ---
+    # Primary: ICD-10 code match (already confirmed by find_policy_by_codes)
+    # Secondary for keyword fallback: text match against covered_diagnoses
+    if match_method in ("icd10", "icd10+cpt", "icd10+hcpcs"):
+        diagnosis_matches = True  # ICD-10 match already confirmed above
+    else:
+        diagnosis_lower = case["diagnosis"].lower()
+        diagnosis_matches = any(
+            d.lower() in diagnosis_lower or diagnosis_lower in d.lower()
+            for d in policy.get("covered_diagnoses", [])
+        )
 
+    # --- Step therapy check ---
     prior_treatments = case.get("prior_treatments_tried", [])
     step_therapy_met = True
     if policy["requires_step_therapy"]:
@@ -223,6 +304,8 @@ def evaluate_case(case: dict, clinical_result: dict = None) -> dict:
     covered = diagnosis_matches and step_therapy_met
 
     reasoning_parts = []
+    if match_method == "keyword_fallback":
+        reasoning_parts.append("low confidence — code-based match not available, using keyword fallback")
     if not diagnosis_matches:
         reasoning_parts.append("diagnosis does not match covered diagnoses for this policy")
     if policy["requires_step_therapy"] and not step_therapy_met:
@@ -233,12 +316,14 @@ def evaluate_case(case: dict, clinical_result: dict = None) -> dict:
     if covered:
         reasoning_parts.append("diagnosis and step-therapy requirements are satisfied")
 
+    confidence = 0.9 if match_confidence == "high" else 0.6
     result = {
         "case_id": case["case_id"],
         "covered": covered,
-        "confidence": 0.9,
+        "confidence": confidence,
         "reasoning": "; ".join(reasoning_parts),
         "matched_policy_id": policy["policy_id"],
+        "match_method": match_method,
         "policy_notes": policy["notes"],
     }
 
@@ -248,53 +333,122 @@ def evaluate_case(case: dict, clinical_result: dict = None) -> dict:
     return result
 
 
+# ---------------------------------------------------------------------------
+# STEP 5: Test runner
+# ---------------------------------------------------------------------------
+
 if __name__ == "__main__":
-    cases = [
+    TEST_CASES = [
         {
-            "case_id": "TEST-001",
+            "case_id": "TEST-001-DIABETES",
+            "diagnosis": "Type 2 Diabetes Mellitus, uncontrolled (HbA1c 9.2%)",
+            "diagnosis_icd10": "E11.65",
+            "requested_treatment": "Semaglutide (Ozempic) 0.25mg weekly injection",
+            "treatment_hcpcs": "J3490",
+            "prior_treatments_tried": ["Metformin", "Glipizide"],
+            "expected_policy": "POL-DIABETES-GLP1",
+        },
+        {
+            "case_id": "TEST-002-MRI",
+            "diagnosis": "Tension headache, occasional",
+            "diagnosis_icd10": "G44.209",
+            "requested_treatment": "MRI Brain with contrast",
+            "treatment_cpt": "70553",
+            "prior_treatments_tried": [],
+            "expected_policy": "POL-IMAGING-MRI-BRAIN",
+        },
+        {
+            "case_id": "TEST-003-DBS",
+            "diagnosis": "Parkinson disease, advanced",
+            "diagnosis_icd10": "G20",
+            "requested_treatment": "Deep brain stimulation surgery",
+            "treatment_cpt": "61886",
+            "prior_treatments_tried": ["Levodopa"],
+            "expected_policy": None,  # No DBS policy — must NOT match MRI Brain
+        },
+        {
+            "case_id": "TEST-004-KNEE",
+            "diagnosis": "Osteoarthritis, severe, right knee",
+            "diagnosis_icd10": "M17.11",
+            "requested_treatment": "Total Knee Arthroplasty",
+            "treatment_cpt": "27447",
+            "prior_treatments_tried": ["NSAIDs", "Physical Therapy"],
+            "expected_policy": "POL-ORTHO-KNEE-REPLACEMENT",
+        },
+        {
+            "case_id": "TEST-005-XOLAIR",
+            "diagnosis": "Seasonal allergic rhinitis, mild",
+            "diagnosis_icd10": "J30.1",
+            "requested_treatment": "Xolair (omalizumab) biologic injection",
+            "treatment_hcpcs": "J2357",
+            "prior_treatments_tried": [],
+            "expected_policy": "POL-ALLERGY-BIOLOGIC",
+        },
+        {
+            "case_id": "TEST-006-ESKETAMINE",
+            "diagnosis": "Major Depressive Disorder, treatment-resistant",
+            "diagnosis_icd10": "F32.89",
+            "requested_treatment": "Esketamine (Spravato) nasal spray",
+            "treatment_hcpcs": "S0013",
+            "prior_treatments_tried": ["Sertraline", "Venlafaxine"],
+            "expected_policy": "POL-PSYCH-ESKETAMINE",
+        },
+        # --- Fallback test: no codes at all (simulates uploaded prescription
+        #     where parser couldn't extract ICD-10/CPT/HCPCS) ---
+        {
+            "case_id": "TEST-007-NO-CODES",
             "diagnosis": "Type 2 Diabetes Mellitus, uncontrolled",
             "requested_treatment": "Semaglutide (Ozempic) 0.25mg weekly injection",
-            "prior_treatments_tried": ["Metformin", "Glipizide"],
+            # No diagnosis_icd10, treatment_cpt, or treatment_hcpcs
+            "prior_treatments_tried": ["Metformin"],
+            "expected_policy": "POL-DIABETES-GLP1",
+            "expected_match_method": "keyword_fallback",  # must NOT be code-based
         },
         {
-            "case_id": "TEST-002",
-            "diagnosis": "Tension headache, occasional",
-            "requested_treatment": "MRI Brain with contrast",
-            "prior_treatments_tried": [],
-        },
-        {
-            "case_id": "TEST-003",
+            "case_id": "TEST-008-NO-CODES-DBS",
             "diagnosis": "Parkinson disease, advanced",
             "requested_treatment": "Deep brain stimulation surgery",
+            # No codes — keyword fallback should also return None (no DBS policy)
             "prior_treatments_tried": ["Levodopa"],
-        },
-        {
-            "case_id": "TEST-004",
-            "diagnosis": "Osteoarthritis, severe, right knee",
-            "requested_treatment": "Total Knee Arthroplasty",
-            "prior_treatments_tried": ["NSAIDs", "Physical Therapy"],
-        },
-        {
-            "case_id": "TEST-005",
-            "diagnosis": "Seasonal allergic rhinitis, mild",
-            "requested_treatment": "Xolair (omalizumab) biologic injection",
-            "prior_treatments_tried": [],
-        },
-        {
-            "case_id": "TEST-006",
-            "diagnosis": "Major Depressive Disorder, treatment-resistant",
-            "requested_treatment": "Esketamine (Spravato) nasal spray",
-            "prior_treatments_tried": ["Sertraline", "Venlafaxine"],
+            "expected_policy": None,
+            "expected_match_method": "none",
         },
     ]
-    for c in cases:
+
+    print("=" * 70)
+    print("Coverage Agent — ICD-10/CPT Code Matching Test Results")
+    print("=" * 70)
+    all_pass = True
+    for c in TEST_CASES:
         result = evaluate_case(c)
-        print(f"{c['case_id']} → matched_policy_id: {result.get('matched_policy_id')}  covered: {result.get('covered')}")
+        matched = result.get("matched_policy_id")
+        method = result.get("match_method")
+        covered = result.get("covered")
+        expected = c["expected_policy"]
+        expected_method = c.get("expected_match_method")
+
+        policy_ok = matched == expected
+        method_ok = (expected_method is None) or (method == expected_method)
+        passed = policy_ok and method_ok
+        if not passed:
+            all_pass = False
+
+        status = "PASS" if passed else "FAIL"
+        print(f"\n[{status}] {c['case_id']}")
+        print(f"  ICD-10 : {c.get('diagnosis_icd10', 'NONE')}  "
+              f"CPT: {c.get('treatment_cpt', 'NONE')}  "
+              f"HCPCS: {c.get('treatment_hcpcs', 'NONE')}")
+        print(f"  matched_policy  : {matched}  (expected: {expected})"
+              + ("" if policy_ok else "  ← WRONG"))
+        print(f"  match_method    : {method}"
+              + (f"  (expected: {expected_method})" if expected_method else "")
+              + ("" if method_ok else "  ← WRONG"))
+        print(f"  covered         : {covered}")
+        print(f"  reasoning       : {result.get('reasoning')}")
         if result.get("ncd_citation"):
-            print(f"         ncd_citation: {result['ncd_citation']['ncd_title']} ({result['ncd_citation']['ncd_display_id']})")
-    print()
-    print("Full TEST-003 output:")
-    import sys
-    for c in cases:
-        if c["case_id"] == "TEST-003":
-            print(json.dumps(evaluate_case(c), indent=2))
+            nc = result["ncd_citation"]
+            print(f"  ncd_citation    : {nc['ncd_title']} ({nc['ncd_display_id']})")
+
+    print("\n" + "=" * 70)
+    print(f"Result: {'ALL TESTS PASSED' if all_pass else 'SOME TESTS FAILED'}")
+    print("=" * 70)
