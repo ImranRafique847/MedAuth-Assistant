@@ -1,0 +1,281 @@
+{
+  "policies": [
+    {
+      "ncd_id": "40.2",
+      "ncd_title": "Blood Glucose Monitors",
+      "policy_id": "NCD-40.2",
+      "treatment_category": "Blood glucose monitor (CGM, glucometer)",
+      "covered_diagnoses": [
+        "Diabetes Mellitus",
+        "Type 1 Diabetes",
+        "Type 2 Diabetes"
+      ],
+      "requires_step_therapy": false,
+      "required_prior_treatments": [],
+      "min_prior_treatment_count": 0,
+      "notes": "Covered for diabetic patients who require insulin. CGMs covered for beneficiaries using insulin 3+ times/day or insulin pump."
+    },
+    {
+      "ncd_id": "40.3",
+      "ncd_title": "GLP-1 Receptor Agonists for Obesity (Off-Label Note)",
+      "policy_id": "NCD-GLP1-DIABETES",
+      "treatment_category": "GLP-1 agonist (Ozempic, Semaglutide, Wegovy, Mounjaro, Tirzepatide)",
+      "covered_diagnoses": [
+        "Type 2 Diabetes Mellitus",
+        "Obesity with Type 2 Diabetes"
+      ],
+      "requires_step_therapy": true,
+      "required_prior_treatments": [
+        "Metformin"
+      ],
+      "min_prior_treatment_count": 1,
+      "notes": "Covered for T2DM with HbA1c > 7.5% after at least one oral agent trial. GLP-1s for weight loss alone not covered under traditional Medicare Part B; may be covered under Part D."
+    },
+    {
+      "ncd_id": "40.1",
+      "ncd_title": "Insulin",
+      "policy_id": "NCD-40.1",
+      "treatment_category": "Insulin (all formulations)",
+      "covered_diagnoses": [
+        "Diabetes Mellitus",
+        "Type 1 Diabetes",
+        "Type 2 Diabetes"
+      ],
+      "requires_step_therapy": false,
+      "required_prior_treatments": [],
+      "min_prior_treatment_count": 0,
+      "notes": "Covered under Part B only when medically necessary for use with an insulin infusion pump. Otherwise covered under Part D."
+    },
+    {
+      "ncd_id": "220.6.18",
+      "ncd_title": "MRI of the Brain",
+      "policy_id": "NCD-220.6.18",
+      "treatment_category": "MRI Brain (magnetic resonance imaging brain)",
+      "covered_diagnoses": [
+        "Suspected stroke",
+        "Transient ischemic attack",
+        "Brain tumor",
+        "Seizure disorder",
+        "Dementia evaluation",
+        "Head trauma",
+        "Multiple sclerosis",
+        "Migraine with red flags"
+      ],
+      "requires_step_therapy": false,
+      "required_prior_treatments": [],
+      "min_prior_treatment_count": 0,
+      "notes": "Covered when medically necessary. Not covered for routine headache without neurological red flags (sudden onset, focal deficits, papilledema, fever, altered consciousness, or age >50 with new headache pattern)."
+    },
+    {
+      "ncd_id": "220.4",
+      "ncd_title": "PET Scan",
+      "policy_id": "NCD-220.4",
+      "treatment_category": "PET scan (positron emission tomography)",
+      "covered_diagnoses": [
+        "Lung cancer staging",
+        "Colorectal cancer",
+        "Lymphoma",
+        "Melanoma",
+        "Breast cancer",
+        "Thyroid cancer",
+        "Alzheimer disease differential diagnosis"
+      ],
+      "requires_step_therapy": false,
+      "required_prior_treatments": [],
+      "min_prior_treatment_count": 0,
+      "notes": "Covered for initial staging and monitoring of certain cancers, and for differentiating Alzheimer from frontotemporal dementia. Coverage with evidence development for some indications."
+    },
+    {
+      "ncd_id": "150.9",
+      "ncd_title": "Total Hip Replacement",
+      "policy_id": "NCD-150.9-HIP",
+      "treatment_category": "Total Hip Arthroplasty (hip replacement surgery)",
+      "covered_diagnoses": [
+        "Osteoarthritis of hip, severe",
+        "Rheumatoid arthritis of hip",
+        "Avascular necrosis of femoral head",
+        "Hip fracture"
+      ],
+      "requires_step_therapy": true,
+      "required_prior_treatments": [
+        "NSAIDs",
+        "Physical Therapy"
+      ],
+      "min_prior_treatment_count": 2,
+      "notes": "Covered when non-operative treatment has failed. Requires documented failure of at least 2 conservative treatments and Grade 3-4 radiographic changes."
+    },
+    {
+      "ncd_id": "150.9.1",
+      "ncd_title": "Total Knee Replacement",
+      "policy_id": "NCD-150.9.1-KNEE",
+      "treatment_category": "Total Knee Arthroplasty (knee replacement surgery)",
+      "covered_diagnoses": [
+        "Osteoarthritis of knee, severe",
+        "Rheumatoid arthritis of knee"
+      ],
+      "requires_step_therapy": true,
+      "required_prior_treatments": [
+        "NSAIDs",
+        "Physical Therapy",
+        "Corticosteroid injections"
+      ],
+      "min_prior_treatment_count": 2,
+      "notes": "Covered for severe osteoarthritis (Kellgren-Lawrence Grade 3-4) with documented failure of at least 2 conservative treatments over minimum 3-month trial."
+    },
+    {
+      "ncd_id": "20.8",
+      "ncd_title": "Cardiac Pacemakers",
+      "policy_id": "NCD-20.8",
+      "treatment_category": "Cardiac pacemaker implantation",
+      "covered_diagnoses": [
+        "Sick sinus syndrome",
+        "Complete heart block",
+        "Second degree AV block, Mobitz Type II",
+        "Symptomatic bradycardia",
+        "Atrial fibrillation with bradycardia"
+      ],
+      "requires_step_therapy": false,
+      "required_prior_treatments": [],
+      "min_prior_treatment_count": 0,
+      "notes": "Covered for documented symptomatic bradycardia or high-degree AV block. Not covered for asymptomatic sinus bradycardia alone."
+    },
+    {
+      "ncd_id": "20.4",
+      "ncd_title": "Implantable Cardioverter Defibrillators (ICD)",
+      "policy_id": "NCD-20.4",
+      "treatment_category": "ICD implantation (implantable cardioverter defibrillator)",
+      "covered_diagnoses": [
+        "Ventricular tachycardia, sustained",
+        "Ventricular fibrillation",
+        "Ischemic cardiomyopathy with EF \u226435%",
+        "Non-ischemic cardiomyopathy with EF \u226435%",
+        "Cardiac arrest survivor"
+      ],
+      "requires_step_therapy": false,
+      "required_prior_treatments": [],
+      "min_prior_treatment_count": 0,
+      "notes": "Covered for primary and secondary prevention of sudden cardiac death. EF must be \u226435% and NYHA Class II-III for primary prevention. 40-day post-MI waiting period applies."
+    },
+    {
+      "ncd_id": "110.23",
+      "ncd_title": "Colorectal Cancer Screening",
+      "policy_id": "NCD-110.23",
+      "treatment_category": "Colonoscopy (colorectal cancer screening)",
+      "covered_diagnoses": [
+        "Colorectal cancer screening, average risk",
+        "Colorectal cancer screening, high risk",
+        "Family history of colorectal cancer"
+      ],
+      "requires_step_therapy": false,
+      "required_prior_treatments": [],
+      "min_prior_treatment_count": 0,
+      "notes": "Covered every 10 years for average risk age 45-75, every 2 years for high-risk patients. No cost-sharing for preventive colonoscopy."
+    },
+    {
+      "ncd_id": "110.7",
+      "ncd_title": "Erythropoiesis Stimulating Agents (ESA) in Cancer",
+      "policy_id": "NCD-110.7",
+      "treatment_category": "ESA (Epoetin, Darbepoetin, Erythropoietin) for anemia",
+      "covered_diagnoses": [
+        "Anemia due to chemotherapy",
+        "Chemotherapy-induced anemia",
+        "Myelodysplastic syndrome with anemia"
+      ],
+      "requires_step_therapy": false,
+      "required_prior_treatments": [],
+      "min_prior_treatment_count": 0,
+      "notes": "Covered for chemotherapy-induced anemia with Hgb <10 g/dL. Not covered for anemia from cancer itself (without concurrent chemotherapy) or for pre-operative use."
+    },
+    {
+      "ncd_id": "160.2.1",
+      "ncd_title": "Electroconvulsive Therapy (ECT)",
+      "policy_id": "NCD-160.2.1",
+      "treatment_category": "ECT (electroconvulsive therapy)",
+      "covered_diagnoses": [
+        "Major Depressive Disorder, severe",
+        "Major Depressive Disorder, treatment-resistant",
+        "Bipolar disorder, severe depressive episode",
+        "Schizophrenia, acute"
+      ],
+      "requires_step_therapy": true,
+      "required_prior_treatments": [
+        "Antidepressant",
+        "SSRI",
+        "SNRI"
+      ],
+      "min_prior_treatment_count": 2,
+      "notes": "Covered when reasonable and necessary. Treatment-resistant depression requires documented failure of adequate trials of at least 2 antidepressants."
+    },
+    {
+      "ncd_id": "160.18",
+      "ncd_title": "Esketamine (Spravato) for Treatment-Resistant Depression",
+      "policy_id": "NCD-160.18-ESKETAMINE",
+      "treatment_category": "Esketamine (Spravato) nasal spray",
+      "covered_diagnoses": [
+        "Major Depressive Disorder, treatment-resistant",
+        "Major Depressive Disorder with acute suicidal ideation"
+      ],
+      "requires_step_therapy": true,
+      "required_prior_treatments": [
+        "SSRI",
+        "SNRI"
+      ],
+      "min_prior_treatment_count": 2,
+      "notes": "Covered under REMS program only. Requires failure of at least 2 adequate antidepressant trials (8+ weeks each at therapeutic doses). Must be administered in certified healthcare setting."
+    },
+    {
+      "ncd_id": "NCA-Biologic-Asthma",
+      "ncd_title": "Biologic Therapy for Severe Asthma",
+      "policy_id": "NCD-BIOLOGIC-ASTHMA",
+      "treatment_category": "Biologic (Xolair, Omalizumab, Dupixent, Dupilumab, Fasenra, Benralizumab)",
+      "covered_diagnoses": [
+        "Severe persistent asthma",
+        "Moderate-to-severe eosinophilic asthma",
+        "Chronic severe asthma",
+        "Allergic asthma with elevated IgE"
+      ],
+      "requires_step_therapy": true,
+      "required_prior_treatments": [
+        "Inhaled corticosteroids",
+        "LABA"
+      ],
+      "min_prior_treatment_count": 2,
+      "notes": "Covered for severe asthma uncontrolled on high-dose ICS plus LABA. Not covered for mild or moderate allergic rhinitis alone. Requires documented IgE level or eosinophil count per specific agent."
+    },
+    {
+      "ncd_id": "160.6",
+      "ncd_title": "Intravenous Immune Globulin (IVIG) for Autoimmune Neurological Disease",
+      "policy_id": "NCD-160.6",
+      "treatment_category": "IVIG (intravenous immunoglobulin)",
+      "covered_diagnoses": [
+        "Multifocal motor neuropathy",
+        "Chronic inflammatory demyelinating polyneuropathy",
+        "Guillain-Barre syndrome",
+        "Dermatomyositis, refractory"
+      ],
+      "requires_step_therapy": false,
+      "required_prior_treatments": [],
+      "min_prior_treatment_count": 0,
+      "notes": "Covered for specific autoimmune neurological conditions. Not covered for all neuropathy diagnoses. Requires documented diagnosis by neurologist."
+    },
+    {
+      "ncd_id": "160.13",
+      "ncd_title": "Deep Brain Stimulation (DBS)",
+      "policy_id": "NCD-160.13",
+      "treatment_category": "Deep brain stimulation (DBS) surgery",
+      "covered_diagnoses": [
+        "Parkinson disease, advanced",
+        "Essential tremor, severe",
+        "Dystonia, primary generalized",
+        "Obsessive-compulsive disorder, treatment-resistant"
+      ],
+      "requires_step_therapy": true,
+      "required_prior_treatments": [
+        "Levodopa",
+        "Dopamine agonist"
+      ],
+      "min_prior_treatment_count": 1,
+      "notes": "Covered for Parkinson disease patients with inadequate medication control. Requires multidisciplinary evaluation and FDA-approved device. OCD indication is Coverage with Evidence Development."
+    }
+  ]
+}
