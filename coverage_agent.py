@@ -112,18 +112,60 @@ def load_policies() -> list:
         return json.load(f)["policies"]
 
 
+# Generic words that cause false positives when matched alone -
+# same stopword list used in the NCD citation fix, kept consistent
+POLICY_STOPWORDS = {
+    "therapy", "treatment", "injection", "injections", "procedure",
+    "surgery", "device", "for", "with", "and", "the", "of", "in", "to",
+    "agent", "agents", "syndrome", "disease", "e.g.", "eg", "i.e.", "ie",
+}
+
+
 def find_matching_policy(requested_treatment: str, policies: list) -> dict | None:
     """
-    Simple keyword match between requested treatment and policy category.
-    In a real system this would use embeddings/semantic search.
+    Scores each policy by how many DISTINCT meaningful words overlap with
+    the requested treatment. Requires at least 2 overlapping words (or all
+    of a policy's words if it only has 1-2 meaningful terms) to accept a
+    match - a single shared generic word (like "brain" alone) is not
+    enough, which is what caused the original false-positive bug.
     """
-    requested_lower = requested_treatment.lower()
+    requested_words = set(
+        requested_treatment.lower().replace("(", "").replace(")", "").replace(",", "").split()
+    )
+    requested_words = {w for w in requested_words if w not in POLICY_STOPWORDS and len(w) > 2}
+
+    best_policy = None
+    best_overlap_count = 0
+    best_score = 0
+
     for policy in policies:
-        category_keywords = policy["treatment_category"].lower()
-        for word in category_keywords.replace("(", "").replace(")", "").split():
-            if len(word) > 4 and word in requested_lower:
-                return policy
-    return None
+        category_words = set(
+            policy["treatment_category"].lower().replace("(", "").replace(")", "").replace(",", "").split()
+        )
+        category_words = {w for w in category_words if w not in POLICY_STOPWORDS and len(w) > 2}
+
+        overlap = requested_words & category_words
+        overlap_count = len(overlap)
+        score = sum(len(w) for w in overlap)
+
+        # Require overlap to cover ALL of the category's meaningful words
+        # (handles short categories like "MRI Brain") OR at least 2 words
+        # (handles longer categories like the GLP-1 one) OR a single very
+        # specific word (6+ chars, e.g. a drug brand name like "Xolair") -
+        # short generic words like "brain" alone still don't qualify
+        required = min(2, len(category_words))
+        has_specific_word = any(len(w) >= 6 for w in overlap)
+        qualifies = overlap_count >= required or (overlap_count >= 1 and has_specific_word)
+
+        if qualifies and overlap_count > 0:
+            if overlap_count > best_overlap_count or (
+                overlap_count == best_overlap_count and score > best_score
+            ):
+                best_overlap_count = overlap_count
+                best_score = score
+                best_policy = policy
+
+    return best_policy
 
 
 # ---------------------------------------------------------------------------
@@ -226,8 +268,33 @@ if __name__ == "__main__":
             "requested_treatment": "Deep brain stimulation surgery",
             "prior_treatments_tried": ["Levodopa"],
         },
+        {
+            "case_id": "TEST-004",
+            "diagnosis": "Osteoarthritis, severe, right knee",
+            "requested_treatment": "Total Knee Arthroplasty",
+            "prior_treatments_tried": ["NSAIDs", "Physical Therapy"],
+        },
+        {
+            "case_id": "TEST-005",
+            "diagnosis": "Seasonal allergic rhinitis, mild",
+            "requested_treatment": "Xolair (omalizumab) biologic injection",
+            "prior_treatments_tried": [],
+        },
+        {
+            "case_id": "TEST-006",
+            "diagnosis": "Major Depressive Disorder, treatment-resistant",
+            "requested_treatment": "Esketamine (Spravato) nasal spray",
+            "prior_treatments_tried": ["Sertraline", "Venlafaxine"],
+        },
     ]
     for c in cases:
         result = evaluate_case(c)
-        print(json.dumps(result, indent=2))
-        print("---")
+        print(f"{c['case_id']} → matched_policy_id: {result.get('matched_policy_id')}  covered: {result.get('covered')}")
+        if result.get("ncd_citation"):
+            print(f"         ncd_citation: {result['ncd_citation']['ncd_title']} ({result['ncd_citation']['ncd_display_id']})")
+    print()
+    print("Full TEST-003 output:")
+    import sys
+    for c in cases:
+        if c["case_id"] == "TEST-003":
+            print(json.dumps(evaluate_case(c), indent=2))
